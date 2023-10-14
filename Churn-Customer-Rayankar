@@ -1,0 +1,259 @@
+##Telcom Customer Churn --- RayanKar Company Task
+
+import numpy as np
+import pandas as pd
+from scipy import stats
+import matplotlib.pyplot as plt
+%matplotlib inline
+import seaborn as sns
+import warnings
+warnings.filterwarnings('ignore')
+# Preprocessing
+from sklearn.preprocessing import StandardScaler ,LabelEncoder ,MinMaxScaler
+from sklearn.model_selection import train_test_split
+from sklearn.compose import ColumnTransformer
+# Machine Learning Algorithms
+from sklearn.linear_model import LogisticRegression
+from sklearn.ensemble import RandomForestClassifier
+from xgboost import XGBClassifier
+from sklearn.neighbors import KNeighborsClassifier
+# Metrics
+import sklearn.metrics as metrics
+from sklearn.metrics import accuracy_score, confusion_matrix, classification_report
+from sklearn.metrics import mean_absolute_error
+from sklearn.metrics import mean_squared_error
+
+
+
+df= pd.read_csv('/content/drive/MyDrive/WA_Fn-UseC_-Telco-Customer-Churn.csv')
+
+df.sample(10)
+
+##Dataset Information
+
+print('Number of columns in dataset is: {}'.format(df.shape[1]))
+print('Number of rows in dataset is: {}'.format(df.shape[0]))
+print('Size of dataset is: {}'.format(df.size))
+print('Duplicate of row in data set is: {}'.format(df.duplicated().sum()))
+print('Type of dataframe is:\n {}'.format(df.info()))
+df.describe().T.style.background_gradient(cmap='Blues')
+
+df.columns
+
+##Preprocessing Data
+
+df.drop('customerID' , axis=1 , inplace=True)
+
+df.isna().sum()
+
+**No Null Value**
+
+
+
+
+**TotalCharges** is a numeric field with string type, so changing it's type from string(object) to float.
+
+#df['TotalCharges'] = df['TotalCharges'].astype(float)
+
+**Error Happen**
+*   Problem with TotalCharges null field that dosen't show in isna becouse of string type, it show ' ' instead of null
+
+df[df['TotalCharges']==' ']
+
+In the fields where the Total charge value is ' ', their tenure value is also. It means that the duration of their presence in the company was zero. We delete them as missing values
+
+df[df['tenure']==0]
+
+df.drop(df[df['TotalCharges']==' '].index , inplace=True)
+
+df['TotalCharges'] = df['TotalCharges'].astype(float)
+
+##Create Numerical Columns and Categorical Columns
+
+categoricalcolumns = []
+numericalcolumns = []
+for i in df.columns:
+    if (df[i].nunique()) > 4:
+        numericalcolumns.append(i)
+    else:
+        categoricalcolumns.append(i)
+categoricalcolumns = categoricalcolumns[:-1]
+
+###Value Counts of all Categorical Columns
+
+for col in categoricalcolumns:
+  print('--------------{}---------------'.format(col.capitalize()))
+  print(df[col].value_counts())
+
+##Visulaization of Data
+
+###It is an overview of the data distribution of the data columns
+
+plt.style.use(plt.style.available[12])
+plt.rcParams.update({'font.size':9})
+plt.rc('xtick', labelsize=8)
+plt.rc('ytick', labelsize=8)
+plt.rc('axes', labelsize=10)
+i = 1
+plt.figure(figsize=(16,16))
+for feature in categoricalcolumns:
+    plt.subplot(4, 4, i)
+    sns.countplot(x=df[feature], hue=df['Churn'])
+    i += 1
+plt.show()
+
+## Data scattering percentage of data set columns in pie chart formating
+
+ax,fig = plt.subplots(nrows = 1,ncols = 5,figsize = (20,5))
+
+plt.subplot(1,5,1)
+plt.pie(df['SeniorCitizen'].value_counts(), labels=["Yes","No"], explode=(0.1,0) , autopct='%.0f%%')
+colors = sns.color_palette('pastel')[0:5]
+plt.title('SeniorCitizen')
+
+
+plt.subplot(1,5,2)
+plt.pie(df['gender'].value_counts(), labels=["Female","Male"], explode=(0.1,0) , autopct='%.0f%%')
+colors = sns.color_palette('pastel')[0:5]
+plt.title('Gender')
+plt.show
+
+
+plt.subplot(1,5,3)
+plt.pie(df['Partner'].value_counts(), labels=["Yes","No"], explode=(0.1,0) , autopct='%.0f%%')
+colors = sns.color_palette('pastel')[0:5]
+plt.title('Partner')
+
+
+plt.subplot(1,5,4)
+plt.pie(df['InternetService'].value_counts(), labels=["Dsl","Fibr" , "No"], explode=(0.1,0 ,0) , autopct='%.0f%%')
+colors = sns.color_palette('pastel')[0:5]
+plt.title('InternetService')
+
+plt.subplot(1,5,5)
+plt.pie(df['PhoneService'].value_counts(), labels=["Yes","No"], explode=(0.1,0) , autopct='%.0f%%')
+colors = sns.color_palette('pastel')[0:5]
+plt.title('PhoneService')
+
+
+n=0
+for i in categoricalcolumns:
+  ax,fig = plt.subplots(nrows = 1,ncols = 1,figsize = (5,5))
+  #plt.subplot(1,2,1)
+  print('--------------{}---------------'.format(i.capitalize()))
+  print(df[[ i,'Churn']].groupby([i]).value_counts())
+  plt.subplot(1,1,n+1)
+  plt.pie(df[[ i,'Churn']].groupby([i]).value_counts()  ,  autopct='%.0f%%')
+  colors = sns.color_palette('pastel')[0:5]
+  plt.title(i)
+  plt.show
+
+## Investigating the influence of numetrical fields on some categorical fields
+
+sns.boxplot( x=df["PaymentMethod"] , y=df["MonthlyCharges"],data = df , palette= 'rainbow')
+
+sns.boxplot( x=df["PaymentMethod"] , y=df["TotalCharges"],data = df , palette= 'rainbow')
+
+sns.boxplot( x=df["Dependents"], y=df["tenure"] ,data = df , palette= 'rainbow')
+
+sns.boxplot( x=df["Dependents"], y=df["TotalCharges"] ,data = df , palette= 'rainbow')
+
+##Plot histogram for Numerical Columns
+
+def plot_hist(variable):
+  plt.figure(figsize=(8,4))
+  plt.hist(df[variable], bins = 50)
+  plt.xlabel(variable)
+  plt.ylabel("Frequency")
+  plt.title(f"Histogram for {variable}")
+  plt.show()
+
+#Numerical_var = ['Age', 'RestingBP', 'Cholesterol', 'MaxHR', 'Oldpeak']
+for n in numericalcolumns:
+  plot_hist(n)
+
+###Drawing a heatmap diagram to check the correlation of Numerical data with each other
+
+df.corr()
+
+sns.heatmap(df.corr(),annot=True, cmap='coolwarm' )
+
+##**Encoding**
+
+lbencoder = LabelEncoder()
+df.iloc[:,-1]=lbencoder.fit_transform(df.iloc[:,-1])
+
+dfencode = pd.get_dummies(df)
+dfencode.head()
+
+#Modeling
+
+##Train-Test Split
+
+Y=dfencode['Churn']
+X=dfencode.drop(['Churn'],axis = 1)
+X_train,X_test,Y_train,Y_test = train_test_split(X,Y,test_size = 0.3,random_state=42)
+
+##FeatureScaling
+
+features = X.columns.values
+scaler = MinMaxScaler(feature_range = (0,1))
+scaler.fit(X)
+X = pd.DataFrame(scaler.transform(X))
+X.columns = features
+
+###Examining the normal distribution of train and test
+
+Y_train.value_counts()
+
+Y_test.value_counts()
+
+## 3614/1308=2.7 ~ 1549/561=2.8 -----------------> Y_train and Y_test are selected in almost equal proportion
+
+##RandomForestClassifier
+
+
+
+Rforest = RandomForestClassifier(n_estimators = 1000, criterion= 'entropy', random_state = 0)
+Rforest.fit(X_train,Y_train)
+yRforest_pred = Rforest.predict(X_test)
+
+print('confusion_matrix: ',metrics.confusion_matrix(Y_test,yRforest_pred))
+
+print('accuracy : ',metrics.accuracy_score(Y_test,yRforest_pred))
+
+Rforest = RandomForestClassifier(n_estimators = 100, random_state = 0)
+Rforest.fit(X_train,Y_train)
+yRforest_pred = Rforest.predict(X_test)
+print('confusion_matrix: ',metrics.confusion_matrix(Y_test,yRforest_pred))
+print('accuracy : ',metrics.accuracy_score(Y_test,yRforest_pred))
+
+##LogisticRegression
+
+logReg = LogisticRegression()
+logReg.fit(X_train, Y_train)
+ylogReg_pred= logReg.predict(X_test)
+print("LogisticRegression accuracy -----",metrics.accuracy_score(Y_test, ylogReg_pred))
+
+print(classification_report(Y_test, ylogReg_pred))
+
+##XGBClassifier
+
+XgbClassifier = XGBClassifier(learning_rate= 0.01,max_depth = 3,n_estimators = 1000)
+XgbCls=XgbClassifier.fit(X_train,Y_train)
+yXgbpred=XgbCls.predict(X_test)
+print("Gradient Boosting Classifier accuracy -----", accuracy_score(Y_test, yXgbpred))
+
+print(classification_report(Y_test, yXgbpred))
+
+print(confusion_matrix(Y_test,yXgbpred))
+
+# True-Positive --->1400  True-Negative-->289  ,  False-Negative -->149  , False-Positive ---> 272
+# True-Positive and True-Negative is our Right Prediction against False-Negative and False-Positive ----- Our Right Prediction Is More Powerful than False Prediction
+
+##KNeighborsClassifier
+
+knn = KNeighborsClassifier(n_neighbors=1)
+knn.fit(X_train ,Y_train)
+yknn_pred=knn.predict(X_test)
+print("KNeighbors Classifier accuracy -----", accuracy_score(Y_test, yknn_pred))
